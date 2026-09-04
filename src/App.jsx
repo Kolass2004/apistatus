@@ -106,23 +106,33 @@ function App() {
       </header>
 
       {error ? (
-        <div className="error-container">
-          <AlertCircle size={48} style={{ marginBottom: '1rem' }} />
-          <h3>Unable to fetch status</h3>
-          <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>{error}</p>
+        <div className="error-container" style={{ textAlign: 'center', padding: '4rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <AlertCircle size={48} style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', opacity: 0.8 }} />
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 500, letterSpacing: '0.02em' }}>System Under Maintenance</h2>
+          <p style={{ color: 'var(--text-secondary)', maxWidth: '450px', lineHeight: '1.6', margin: '0 auto 2rem auto' }}>
+            We're currently performing scheduled automated maintenance or experiencing temporary connectivity issues. Services will be restored shortly.
+          </p>
           <button 
             onClick={fetchData}
             style={{
-              marginTop: '1.5rem',
-              padding: '0.5rem 1rem',
-              background: 'var(--surface-color)',
+              padding: '0.6rem 1.2rem',
+              background: 'transparent',
               border: '1px solid var(--border-color)',
               color: 'var(--text-primary)',
               borderRadius: '0',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--text-primary)';
+              e.currentTarget.style.color = 'var(--bg-color)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text-primary)';
             }}
           >
-            Try Again
+            Refresh Status
           </button>
         </div>
       ) : (
