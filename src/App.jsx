@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Activity, RefreshCw, AlertCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, AlertCircle, Clock, Server } from 'lucide-react';
 import ServiceCard from './components/ServiceCard';
+import SystemMetrics from './components/SystemMetrics';
 
 function App() {
   const [data, setData] = useState(null);
@@ -8,11 +9,11 @@ function App() {
   const [error, setError] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (isManual = false) => {
     try {
       setLoading(true);
-      // Wait a tiny bit to show loading state if manual refresh
-      if (data) await new Promise(r => setTimeout(r, 400)); 
+      // Brief debounce for smooth visual feedback on manual refresh
+      if (isManual) await new Promise(r => setTimeout(r, 350)); 
       
       const response = await fetch('https://apistatus.rexonspace.in/');
       if (!response.ok) {
@@ -27,7 +28,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -36,14 +37,14 @@ function App() {
       fetchData();
     }, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   if (loading && !data) {
     return (
       <div className="container">
         <div className="loader-container">
           <RefreshCw className="spinner" size={32} />
-          <p>Fetching system status...</p>
+          <p className="loader-text">CONNECTING TO REXONSPACE MONITOR...</p>
         </div>
       </div>
     );
@@ -52,10 +53,14 @@ function App() {
   // Calculate global status based on individual services
   let globalStatus = 'All Systems Operational';
   let globalStatusClass = 'available';
+  let availableCount = 0;
+  let totalServices = 0;
   
   if (data && data.services) {
     const services = Object.values(data.services);
-    const offlineCount = services.filter(s => s.status !== 'available').length;
+    totalServices = services.length;
+    availableCount = services.filter(s => s.status === 'available' || s.status === 'online').length;
+    const offlineCount = services.filter(s => s.status !== 'available' && s.status !== 'online').length;
     
     if (offlineCount === services.length && services.length > 0) {
       globalStatus = 'Major Outage';
@@ -73,88 +78,91 @@ function App() {
     <div className="container">
       <header className="header">
         <div className="header-titles">
-          <h1 >System Status</h1>
+       
+          <h1>System Status</h1>
+          <p className="header-tagline">Real-time infrastructure health, host telemetry, and service availability</p>
         </div>
+
         <div className="header-controls">
           {data && (
             <div className={`global-status ${globalStatusClass}`}>
-              {globalStatus}
+              <span className="status-pulse-dot"></span>
+              <span>{globalStatus}</span>
             </div>
           )}
           <button 
-            onClick={fetchData} 
+            onClick={() => fetchData(true)} 
             disabled={loading}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              padding: '0 0.85rem',
-              borderRadius: '0',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s'
-            }}
-            title="Refresh status"
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+            className="refresh-btn"
+            title="Refresh status data"
+            aria-label="Refresh status"
           >
-            <RefreshCw size={18} className={loading ? 'spinner' : ''} />
+            <RefreshCw size={17} className={loading ? 'spinner' : ''} />
           </button>
         </div>
       </header>
 
       {error ? (
-        <div className="error-container" style={{ textAlign: 'center', padding: '4rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <AlertCircle size={48} style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', opacity: 0.8 }} />
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 500, letterSpacing: '0.02em' }}>System Under Maintenance</h2>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: '450px', lineHeight: '1.6', margin: '0 auto 2rem auto' }}>
-            We're currently performing scheduled automated maintenance or experiencing temporary connectivity issues. Services will be restored shortly.
+        <div className="error-container">
+          <AlertCircle size={48} className="error-icon" />
+          <h2>System Telemetry Unavailable</h2>
+          <p>
+            Unable to connect to the status daemon at apistatus.rexonspace.in ({error}). Services may be undergoing scheduled maintenance or temporary network isolation.
           </p>
-          <button 
-            onClick={fetchData}
-            style={{
-              padding: '0.6rem 1.2rem',
-              background: 'transparent',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              borderRadius: '0',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--text-primary)';
-              e.currentTarget.style.color = 'var(--bg-color)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-          >
-            Refresh Status
+          <button onClick={fetchData} className="action-button">
+            Retry Connection
           </button>
         </div>
       ) : (
-        <div className="services-grid">
-          {data && data.services && Object.entries(data.services).map(([key, serviceData], index) => (
-            <ServiceCard 
-              key={key} 
-              serviceKey={key} 
-              data={serviceData} 
-              index={index} 
+        <>
+          {data?.system && (
+            <SystemMetrics 
+              system={data.system} 
+              lastCheckedAt={data.last_checked_at}
+              cacheAgeSeconds={data.cache_age_seconds}
             />
-          ))}
-        </div>
+          )}
+
+          <section className="services-section" aria-label="Monitored Services">
+            <div className="section-header">
+              <div className="section-title-group">
+                <Server size={16} className="section-title-icon" />
+                <h2 className="section-heading">Monitored Services</h2>
+                <span className="section-subtag">Network & Endpoints</span>
+              </div>
+              <div className="services-count-badge">
+                <span className="count-available">{availableCount}</span>
+                <span className="count-divider">/</span>
+                <span className="count-total">{totalServices} AVAILABLE</span>
+              </div>
+            </div>
+
+            <div className="services-grid">
+              {data && data.services && Object.entries(data.services).map(([key, serviceData], index) => (
+                <ServiceCard 
+                  key={key} 
+                  serviceKey={key} 
+                  data={serviceData} 
+                  index={index} 
+                />
+              ))}
+            </div>
+          </section>
+        </>
       )}
 
       <footer className="footer">
         <div className="footer-left">
           <Clock size={14} />
-          <span>Last updated: {lastRefreshed.toLocaleTimeString()}</span>
+          <span>Client updated: {lastRefreshed.toLocaleTimeString()}</span>
+          {data?.last_checked_at && (
+            <span className="server-timestamp">
+              • Server poll: {new Date(data.last_checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
         </div>
         <div className="footer-right">
-        Uvite technologies |  Property of Kolass Rexon J
+          Uvite technologies | Property of Kolass Rexon J
         </div>
       </footer>
     </div>

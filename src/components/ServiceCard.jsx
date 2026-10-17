@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Globe, Server, ExternalLink, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Globe, Server, ExternalLink, ChevronDown, ChevronUp, AlertCircle, Terminal } from 'lucide-react';
 
-const ServiceCard = ({ serviceKey, data, index }) => {
-  const { status, description, origin, public: pub, reason } = data;
+const ServiceCard = ({ serviceKey, data }) => {
+  const { status, description, origin, public: pub, reason, service, running } = data || {};
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Determine status class
@@ -16,46 +16,67 @@ const ServiceCard = ({ serviceKey, data, index }) => {
   const hasIssues = statusClass === 'issues' || statusClass === 'offline';
 
   const toggleExpand = () => {
-    if (hasIssues) setIsExpanded(!isExpanded);
+    if (hasIssues && reason) setIsExpanded(!isExpanded);
   };
+
+  const hasDetails = Boolean(origin || (pub && pub.url) || service);
 
   return (
     <div 
-      className={`service-card ${statusClass} ${hasIssues ? 'expandable' : ''}`}
+      className={`service-card ${statusClass} ${hasIssues && reason ? 'expandable' : ''}`}
       onClick={toggleExpand}
     >
       <div className="card-header">
         <div>
-          <h3 className="card-title">{description}</h3>
-          <p className="card-description">{serviceKey || 'No description available'}</p>
+          <h3 className="card-title">{description || serviceKey}</h3>
+          <p className="card-description">{serviceKey || 'No service identifier'}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="card-status-wrapper">
           <div className={`status-badge ${statusClass}`}>
+            <span className="status-dot"></span>
             {status}
           </div>
-          {hasIssues && (
-            isExpanded ? <ChevronUp size={16} color="var(--text-secondary)" /> : <ChevronDown size={16} color="var(--text-secondary)" />
+          {hasIssues && reason && (
+            isExpanded ? <ChevronUp size={16} className="expand-chevron" /> : <ChevronDown size={16} className="expand-chevron" />
           )}
         </div>
       </div>
       
-      {(origin || pub) && (
+      {hasDetails && (
         <div className="card-details">
+          {service && (
+            <div className="detail-row">
+              <Terminal size={14} className="detail-icon" />
+              <span className="detail-mono">{service}</span>
+              <span className={`pill-badge ${running ? 'pill-green' : 'pill-red'}`}>
+                {running ? 'RUNNING' : 'STOPPED'}
+              </span>
+            </div>
+          )}
+
           {origin && (
             <div className="detail-row">
-              <Server size={14} />
-              <span style={{ color: origin.available ? 'var(--status-green)' : 'var(--status-red)', fontWeight: '600' }}>
+              <Server size={14} className="detail-icon" />
+              <span className="detail-mono">{origin.address}</span>
+              <span className={`pill-badge ${origin.available ? 'pill-green' : 'pill-red'}`}>
                 {origin.available ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
           )}
+
           {pub && pub.url && (
             <div className="detail-row">
-              <Globe size={14} />
-              <a href={pub.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                {pub.url.replace(/^https?:\/\//, '')}
+              <Globe size={14} className="detail-icon" />
+              <a 
+                href={pub.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                onClick={e => e.stopPropagation()}
+                className="detail-link"
+              >
+                <span>{pub.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                <ExternalLink size={12} className="link-icon" />
               </a>
-              <ExternalLink size={12} style={{ marginLeft: '4px', opacity: 0.5 }} />
             </div>
           )}
         </div>
