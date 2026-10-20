@@ -34,10 +34,10 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    // Auto refresh every 60 seconds
+    // Auto refresh every 2 seconds
     const interval = setInterval(() => {
       fetchData();
-    }, 60000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
